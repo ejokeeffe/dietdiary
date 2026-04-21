@@ -2,12 +2,17 @@ import json
 import logging
 import re
 from datetime import date
-import anthropic
+from langchain_anthropic import ChatAnthropic
+from langchain_core.prompts import ChatPromptTemplate
 from config import settings
 
 log = logging.getLogger("claude_parser")
 
-client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
+llm = ChatAnthropic(
+    model="claude-sonnet-4-20250514",
+    api_key=settings.ANTHROPIC_API_KEY,
+    max_tokens=1024,
+)
 
 SYSTEM_PROMPT = """You are a health diary assistant. Your job is to parse natural language diary entries into structured JSON.
 
@@ -76,6 +81,13 @@ Rules:
 
 IMPORTANT: Return ONLY the raw JSON object. No markdown code fences. No text before or after the JSON."""
 
+_prompt = ChatPromptTemplate.from_messages([
+    ("system", SYSTEM_PROMPT),
+    ("human", "{user_message}"),
+])
+
+chain = _prompt | llm
+
 
 def parse_message(raw_text: str, default_time: str, default_date: str) -> dict:
     log.debug("parse_message called | raw_text=%r | default_date=%s | default_time=%s",
@@ -83,14 +95,9 @@ def parse_message(raw_text: str, default_time: str, default_date: str) -> dict:
 
     user_message = f'Entry: "{raw_text}"\nCurrent date: {date.today().isoformat()}\nDefault time if no time is stated: {default_time}'
 
-    response = client.messages.create(
-        model="claude-sonnet-4-20250514",
-        max_tokens=1024,
-        system=SYSTEM_PROMPT,
-        messages=[{"role": "user", "content": user_message}],
-    )
+    response = chain.invoke({"user_message": user_message})
     log.debug(f"user_message={user_message} | claude_response={response}")
-    raw = response.content[0].text.strip()
+    raw = response.content.strip()
 
     # Strip markdown fences if present (fallback)
     raw = re.sub(r"^```(?:json)?\s*", "", raw)
