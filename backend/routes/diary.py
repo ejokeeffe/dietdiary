@@ -2,7 +2,7 @@ from datetime import date, datetime, time, timedelta
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from database import get_db
-from models import DiaryEntry, FoodLog, DrinkLog, ExerciseLog
+from models import DiaryEntry, FoodLog, DrinkLog, ExerciseLog, WeightLog
 from schemas import DaySummary, DiaryEntrySchema, EntryUpdate, HistoryResponse, DayHistory, ExerciseSession
 
 router = APIRouter(prefix="/api")
@@ -17,6 +17,7 @@ def _compute_summary(entries: list[DiaryEntry], day: date) -> DaySummary:
     total_alcohol_units = 0.0
     total_calories_burned = 0.0
 
+    weight_kg = None
     for e in entries:
         if e.entry_type == "food" and e.food_log:
             total_calories_consumed += e.food_log.calories or 0
@@ -29,6 +30,8 @@ def _compute_summary(entries: list[DiaryEntry], day: date) -> DaySummary:
             total_alcohol_units += e.drink_log.alcohol_units or 0
         elif e.entry_type == "exercise" and e.exercise_log:
             total_calories_burned += e.exercise_log.calories_burned or 0
+        elif e.entry_type == "weight" and e.weight_log:
+            weight_kg = e.weight_log.weight_kg  # last weight entry wins (entries ordered by time)
 
     return DaySummary(
         date=day,
@@ -41,6 +44,7 @@ def _compute_summary(entries: list[DiaryEntry], day: date) -> DaySummary:
         total_alcohol_units=round(total_alcohol_units, 1),
         total_calories_burned=round(total_calories_burned, 1),
         net_calories=round(total_calories_consumed - total_calories_burned, 1),
+        weight_kg=weight_kg,
     )
 
 
@@ -100,6 +104,10 @@ def update_entry(entry_id: int, payload: EntryUpdate, db: Session = Depends(get_
         for field, value in payload.exercise.model_dump(exclude_unset=True).items():
             setattr(entry.exercise_log, field, value)
 
+    if payload.weight and entry.weight_log:
+        for field, value in payload.weight.model_dump(exclude_unset=True).items():
+            setattr(entry.weight_log, field, value)
+
     db.commit()
     db.refresh(entry)
     return entry
@@ -138,7 +146,7 @@ def get_history(profile_id: int, days: int = 30, db: Session = Depends(get_db)):
             days_map[key] = {
                 "date": key, "calories": 0.0, "protein": 0.0, "carbs": 0.0,
                 "fat": 0.0, "fibre": 0.0, "alcohol_units": 0.0,
-                "calories_burned": 0.0, "exercise_sessions": [],
+                "calories_burned": 0.0, "exercise_sessions": [], "weight_kg": None,
             }
         d = days_map[key]
         if e.entry_type == "food" and e.food_log:
@@ -158,6 +166,8 @@ def get_history(profile_id: int, days: int = 30, db: Session = Depends(get_db)):
                 distance_km=e.exercise_log.distance_km,
                 calories_burned=e.exercise_log.calories_burned,
             ))
+        elif e.entry_type == "weight" and e.weight_log:
+            d["weight_kg"] = e.weight_log.weight_kg  # last entry wins
 
     # Fill every day in range, including days with no entries
     result: list[DayHistory] = []
@@ -176,11 +186,13 @@ def get_history(profile_id: int, days: int = 30, db: Session = Depends(get_db)):
                 alcohol_units=round(d["alcohol_units"], 2),
                 calories_burned=round(d["calories_burned"], 1),
                 exercise_sessions=d["exercise_sessions"],
+                weight_kg=d["weight_kg"],
             ))
         else:
             result.append(DayHistory(
                 date=key, calories=0, protein=0, carbs=0,
                 fat=0, fibre=0, alcohol_units=0, calories_burned=0, exercise_sessions=[],
+                weight_kg=None,
             ))
         current += timedelta(days=1)
 

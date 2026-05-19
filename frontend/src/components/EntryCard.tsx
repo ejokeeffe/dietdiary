@@ -13,6 +13,13 @@ function fmt(n: number | null | undefined, unit = '') {
   return `${n}${unit}`
 }
 
+function kgToStone(kg: number): string {
+  const totalLbs = kg / 0.453592
+  const stones = Math.floor(totalLbs / 14)
+  const lbs = Math.round(totalLbs % 14)
+  return `${stones} st ${lbs} lbs`
+}
+
 export default function EntryCard({ entry, onUpdated, onDeleted }: Props) {
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -49,6 +56,10 @@ export default function EntryCard({ entry, onUpdated, onDeleted }: Props) {
       f.distance_km = el.distance_km?.toString() ?? ''
       f.calories_burned = el.calories_burned?.toString() ?? ''
       f.notes = el.notes ?? ''
+    } else if (entry.weight_log) {
+      const wl = entry.weight_log
+      f.weight_kg = wl.weight_kg.toString()
+      f.notes = wl.notes ?? ''
     }
     setFields(f)
     setEditing(true)
@@ -89,6 +100,11 @@ export default function EntryCard({ entry, onUpdated, onDeleted }: Props) {
           duration_minutes: fields.duration_minutes ? parseFloat(fields.duration_minutes) : null,
           distance_km: fields.distance_km ? parseFloat(fields.distance_km) : null,
           calories_burned: fields.calories_burned ? parseFloat(fields.calories_burned) : null,
+          notes: fields.notes || null,
+        }
+      } else if (entry.entry_type === 'weight') {
+        update.weight = {
+          weight_kg: fields.weight_kg ? parseFloat(fields.weight_kg) : undefined,
           notes: fields.notes || null,
         }
       }
@@ -147,6 +163,13 @@ export default function EntryCard({ entry, onUpdated, onDeleted }: Props) {
             <label>Calories burned <input type="number" value={fields.calories_burned} onChange={e => set('calories_burned', e.target.value)} /></label>
             <label>Notes <input value={fields.notes} onChange={e => set('notes', e.target.value)} /></label>
           </>}
+          {entry.entry_type === 'weight' && <>
+            <label>Weight (kg) <input type="number" step="0.1" value={fields.weight_kg} onChange={e => set('weight_kg', e.target.value)} /></label>
+            {fields.weight_kg && !isNaN(parseFloat(fields.weight_kg)) && (
+              <span className="detail">{kgToStone(parseFloat(fields.weight_kg))}</span>
+            )}
+            <label>Notes <input value={fields.notes} onChange={e => set('notes', e.target.value)} /></label>
+          </>}
         </div>
         <div className="card-actions">
           <button onClick={save} disabled={saving} className="btn-save">{saving ? 'Saving…' : 'Save'}</button>
@@ -199,6 +222,16 @@ export default function EntryCard({ entry, onUpdated, onDeleted }: Props) {
               {fmt(entry.exercise_log.calories_burned, ' kcal burned') && <span>{fmt(entry.exercise_log.calories_burned, ' kcal burned')}</span>}
             </div>
             {entry.exercise_log.notes && <div className="notes">{entry.exercise_log.notes}</div>}
+          </>
+        )}
+        {entry.entry_type === 'weight' && entry.weight_log && (
+          <>
+            <strong>Weight</strong>
+            <div className="macros">
+              <span>{entry.weight_log.weight_kg.toFixed(1)} kg</span>
+              <span>{kgToStone(entry.weight_log.weight_kg)}</span>
+            </div>
+            {entry.weight_log.notes && <div className="notes">{entry.weight_log.notes}</div>}
           </>
         )}
       </div>

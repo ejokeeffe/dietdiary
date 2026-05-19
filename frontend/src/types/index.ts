@@ -30,16 +30,23 @@ export interface ExerciseLog {
   notes: string | null
 }
 
+export interface WeightLog {
+  id: number
+  weight_kg: number
+  notes: string | null
+}
+
 export interface DiaryEntry {
   id: number
   entry_date: string
   entry_time: string
-  entry_type: 'food' | 'drink' | 'exercise'
+  entry_type: 'food' | 'drink' | 'exercise' | 'weight'
   raw_input: string
   created_at: string
   food_log: FoodLog | null
   drink_log: DrinkLog | null
   exercise_log: ExerciseLog | null
+  weight_log: WeightLog | null
 }
 
 export interface ExerciseSession {
@@ -59,6 +66,7 @@ export interface DayHistory {
   alcohol_units: number
   calories_burned: number
   exercise_sessions: ExerciseSession[]
+  weight_kg: number | null
 }
 
 export interface HistoryResponse {
@@ -82,6 +90,7 @@ export interface DaySummary {
   total_alcohol_units: number
   total_calories_burned: number
   net_calories: number
+  weight_kg: number | null
 }
 
 export interface ChatResponse {
@@ -98,4 +107,5 @@ export interface EntryUpdate {
   food?: Partial<FoodLog>
   drink?: Partial<DrinkLog>
   exercise?: Partial<ExerciseLog>
+  weight?: Partial<WeightLog>
 }

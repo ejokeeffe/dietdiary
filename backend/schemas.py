@@ -41,6 +41,14 @@ class ExerciseLogSchema(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class WeightLogSchema(BaseModel):
+    id: int
+    weight_kg: float
+    notes: Optional[str] = None
+
+    model_config = {"from_attributes": True}
+
+
 class DiaryEntrySchema(BaseModel):
     id: int
     entry_date: date
@@ -51,6 +59,7 @@ class DiaryEntrySchema(BaseModel):
     food_log: Optional[FoodLogSchema] = None
     drink_log: Optional[DrinkLogSchema] = None
     exercise_log: Optional[ExerciseLogSchema] = None
+    weight_log: Optional[WeightLogSchema] = None
 
     model_config = {"from_attributes": True}
 
@@ -66,6 +75,7 @@ class DaySummary(BaseModel):
     total_alcohol_units: float
     total_calories_burned: float
     net_calories: float
+    weight_kg: Optional[float] = None
 
 
 class FoodLogUpdate(BaseModel):
@@ -97,12 +107,18 @@ class ExerciseLogUpdate(BaseModel):
     notes: Optional[str] = None
 
 
+class WeightLogUpdate(BaseModel):
+    weight_kg: Optional[float] = None
+    notes: Optional[str] = None
+
+
 class EntryUpdate(BaseModel):
     entry_date: Optional[str] = None  # YYYY-MM-DD
     entry_time: Optional[str] = None  # HH:MM
     food: Optional[FoodLogUpdate] = None
     drink: Optional[DrinkLogUpdate] = None
     exercise: Optional[ExerciseLogUpdate] = None
+    weight: Optional[WeightLogUpdate] = None
 
 
 class ExerciseSession(BaseModel):
@@ -122,6 +138,7 @@ class DayHistory(BaseModel):
     alcohol_units: float
     calories_burned: float
     exercise_sessions: list[ExerciseSession]
+    weight_kg: Optional[float] = None
 
 
 class HistoryResponse(BaseModel):

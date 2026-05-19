@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 from database import get_db
-from models import DiaryEntry, FoodLog, DrinkLog, ExerciseLog
+from models import DiaryEntry, FoodLog, DrinkLog, ExerciseLog, WeightLog
 from schemas import ChatRequest, ChatResponse, DiaryEntrySchema
 from claude_parser import parse_message
 from langchain_agent import query_diary
@@ -15,6 +15,7 @@ router = APIRouter(prefix="/api")
 FOOD_FIELDS = {"item_name", "quantity", "calories", "protein", "carbs", "fat", "fibre", "sugar", "notes"}
 DRINK_FIELDS = {"item_name", "quantity_ml", "calories", "is_alcoholic", "alcohol_units", "notes"}
 EXERCISE_FIELDS = {"exercise_type", "duration_minutes", "distance_km", "calories_burned", "notes"}
+WEIGHT_FIELDS = {"weight_kg", "notes"}
 
 
 def _time_from_str(t: str) -> time:
@@ -50,8 +51,8 @@ def _apply_edit(parsed: dict, request_date: str, db: Session) -> ChatResponse:
     if not entries:
         return ChatResponse(type="error", error=f"No {search_type} entries found for {entry_date}.")
 
-    # Filter by item name / exercise type (case-insensitive)
-    if search_item:
+    # Filter by item name / exercise type (case-insensitive); weight entries skip name matching
+    if search_item and search_type != "weight":
         term = search_item.lower()
         if search_type == "exercise":
             entries = [e for e in entries if e.exercise_log and term in e.exercise_log.exercise_type.lower()]
@@ -95,6 +96,10 @@ def _apply_edit(parsed: dict, request_date: str, db: Session) -> ChatResponse:
         for key, val in updates.items():
             if key in EXERCISE_FIELDS:
                 setattr(entry.exercise_log, key, val)
+    elif search_type == "weight" and entry.weight_log:
+        for key, val in updates.items():
+            if key in WEIGHT_FIELDS:
+                setattr(entry.weight_log, key, val)
 
     db.commit()
     db.refresh(entry)
@@ -103,7 +108,8 @@ def _apply_edit(parsed: dict, request_date: str, db: Session) -> ChatResponse:
     item_label = (
         entry.food_log.item_name if entry.food_log else
         entry.drink_log.item_name if entry.drink_log else
-        entry.exercise_log.exercise_type if entry.exercise_log else search_item
+        entry.exercise_log.exercise_type if entry.exercise_log else
+        "Weight" if entry.weight_log else search_item
     )
     confirmation = f"Updated: {item_label} — {changed}"
 
@@ -208,6 +214,21 @@ def chat(request: ChatRequest, db: Session = Depends(get_db)):
         dist = f", {parsed['distance_km']} km" if parsed.get("distance_km") else ""
         burned = f" — {int(parsed['calories_burned'])} kcal burned" if parsed.get("calories_burned") else ""
         confirmation = f"Logged: {parsed.get('exercise_type', 'Exercise')} {duration}{dist}{burned} at {parsed.get('entry_time', default_time)}{date_suffix}"
+
+    elif entry_type == "weight":
+        weight_kg = parsed.get("weight_kg")
+        if not weight_kg:
+            db.rollback()
+            return ChatResponse(type="error", error="Could not parse weight value.")
+        weight = WeightLog(
+            entry_id=entry.id,
+            weight_kg=weight_kg,
+            notes=parsed.get("notes"),
+        )
+        db.add(weight)
+        stones = int(weight_kg / 6.35029)
+        lbs = round((weight_kg - stones * 6.35029) / 0.453592)
+        confirmation = f"Logged: Weight — {weight_kg:.1f} kg ({stones} st {lbs} lbs) at {parsed.get('entry_time', default_time)}{date_suffix}"
 
     db.commit()
     db.refresh(entry)

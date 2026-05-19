@@ -4,6 +4,7 @@ import type { DayHistory } from '../types'
 import NutritionChart from './charts/NutritionChart'
 import ExerciseChart from './charts/ExerciseChart'
 import AlcoholChart from './charts/AlcoholChart'
+import WeightChart from './charts/WeightChart'
 
 const RANGE_OPTIONS = [
   { label: '7 days', value: 7 },
@@ -47,6 +48,7 @@ export default function ChartsTab({ profileId, sex }: Props) {
         <div className="loading-msg">Loading…</div>
       ) : (
         <>
+          <WeightChart days={days} />
           <NutritionChart days={days} sex={sex} />
           <ExerciseChart days={days} />
           <AlcoholChart days={days} sex={sex} />

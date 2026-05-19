@@ -22,7 +22,7 @@ class DiaryEntry(Base):
     profile_id = Column(Integer, ForeignKey("profiles.id"), nullable=True, index=True)
     entry_date = Column(Date, nullable=False, index=True)
     entry_time = Column(Time, nullable=False)
-    entry_type = Column(String(10), nullable=False)  # food | drink | exercise
+    entry_type = Column(String(10), nullable=False)  # food | drink | exercise | weight
     raw_input = Column(Text, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
 
@@ -30,6 +30,7 @@ class DiaryEntry(Base):
     food_log = relationship("FoodLog", back_populates="entry", cascade="all, delete-orphan", uselist=False)
     drink_log = relationship("DrinkLog", back_populates="entry", cascade="all, delete-orphan", uselist=False)
     exercise_log = relationship("ExerciseLog", back_populates="entry", cascade="all, delete-orphan", uselist=False)
+    weight_log = relationship("WeightLog", back_populates="entry", cascade="all, delete-orphan", uselist=False)
 
 
 class FoodLog(Base):
@@ -77,3 +78,14 @@ class ExerciseLog(Base):
     notes = Column(Text)
 
     entry = relationship("DiaryEntry", back_populates="exercise_log")
+
+
+class WeightLog(Base):
+    __tablename__ = "weight_log"
+
+    id = Column(Integer, primary_key=True, index=True)
+    entry_id = Column(Integer, ForeignKey("diary_entries.id"), nullable=False)
+    weight_kg = Column(Float, nullable=False)
+    notes = Column(Text)
+
+    entry = relationship("DiaryEntry", back_populates="weight_log")
