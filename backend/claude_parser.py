@@ -24,18 +24,18 @@ Determine whether the input is:
 Return a single raw JSON object — no markdown fences, no prose before or after.
 
 If it is a QUESTION, return exactly:
-{"type": "question"}
+{{"type": "question"}}
 
 If it is an EDIT REQUEST (e.g. "actually my porridge was 500 calories", "change my run to 6km", "update the latte to a small one"), return:
-{
+{{
   "type": "edit",
   "search_entry_type": "food",
   "search_item": "porridge",
   "search_time": null,
-  "updates": {
+  "updates": {{
     "calories": 500
-  }
-}
+  }}
+}}
 Rules for edit:
 - search_entry_type: "food", "drink", or "exercise"
 - search_item: the name of the food/drink or type of exercise to find (lowercase)
@@ -45,7 +45,7 @@ Rules for edit:
   For entry_date: resolve relative dates using current_date ("yesterday" → the day before current_date, etc.)
 
 If it is a DIARY ENTRY, return this flat schema with all fields present (use null for fields that don't apply):
-{
+{{
   "type": "entry",
   "entry_date": null,
   "entry_type": "food",
@@ -65,7 +65,7 @@ If it is a DIARY ENTRY, return this flat schema with all fields present (use nul
   "distance_km": null,
   "calories_burned": null,
   "notes": "Estimated typical serving"
-}
+}}
 
 Rules:
 - entry_type must be exactly "food", "drink", or "exercise"
