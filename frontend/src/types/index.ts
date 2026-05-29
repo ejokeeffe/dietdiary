@@ -36,17 +36,37 @@ export interface WeightLog {
   notes: string | null
 }
 
+export interface HealthEventLog {
+  id: number
+  event_type: 'injury' | 'illness'
+  description: string
+  severity: number | null
+  end_date: string | null
+  notes: string | null
+}
+
 export interface DiaryEntry {
   id: number
   entry_date: string
   entry_time: string
-  entry_type: 'food' | 'drink' | 'exercise' | 'weight'
+  entry_type: 'food' | 'drink' | 'exercise' | 'weight' | 'health'
   raw_input: string
   created_at: string
   food_log: FoodLog | null
   drink_log: DrinkLog | null
   exercise_log: ExerciseLog | null
   weight_log: WeightLog | null
+  health_log: HealthEventLog | null
+}
+
+export interface HealthEvent {
+  entry_id: number
+  event_type: 'injury' | 'illness'
+  description: string
+  severity: number | null
+  start_date: string
+  end_date: string | null
+  notes: string | null
 }
 
 export interface ExerciseSession {
@@ -71,6 +91,7 @@ export interface DayHistory {
 
 export interface HistoryResponse {
   days: DayHistory[]
+  health_events: HealthEvent[]
 }
 
 export interface Profile {
@@ -108,4 +129,5 @@ export interface EntryUpdate {
   drink?: Partial<DrinkLog>
   exercise?: Partial<ExerciseLog>
   weight?: Partial<WeightLog>
+  health?: Partial<HealthEventLog>
 }

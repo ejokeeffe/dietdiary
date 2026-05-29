@@ -49,6 +49,17 @@ class WeightLogSchema(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class HealthEventLogSchema(BaseModel):
+    id: int
+    event_type: str
+    description: str
+    severity: Optional[int] = None
+    end_date: Optional[date] = None
+    notes: Optional[str] = None
+
+    model_config = {"from_attributes": True}
+
+
 class DiaryEntrySchema(BaseModel):
     id: int
     entry_date: date
@@ -60,6 +71,7 @@ class DiaryEntrySchema(BaseModel):
     drink_log: Optional[DrinkLogSchema] = None
     exercise_log: Optional[ExerciseLogSchema] = None
     weight_log: Optional[WeightLogSchema] = None
+    health_log: Optional[HealthEventLogSchema] = None
 
     model_config = {"from_attributes": True}
 
@@ -112,6 +124,14 @@ class WeightLogUpdate(BaseModel):
     notes: Optional[str] = None
 
 
+class HealthEventLogUpdate(BaseModel):
+    event_type: Optional[str] = None
+    description: Optional[str] = None
+    severity: Optional[int] = None
+    end_date: Optional[str] = None  # YYYY-MM-DD or null to clear
+    notes: Optional[str] = None
+
+
 class EntryUpdate(BaseModel):
     entry_date: Optional[str] = None  # YYYY-MM-DD
     entry_time: Optional[str] = None  # HH:MM
@@ -119,6 +139,7 @@ class EntryUpdate(BaseModel):
     drink: Optional[DrinkLogUpdate] = None
     exercise: Optional[ExerciseLogUpdate] = None
     weight: Optional[WeightLogUpdate] = None
+    health: Optional[HealthEventLogUpdate] = None
 
 
 class ExerciseSession(BaseModel):
@@ -141,8 +162,19 @@ class DayHistory(BaseModel):
     weight_kg: Optional[float] = None
 
 
+class HealthEvent(BaseModel):
+    entry_id: int
+    event_type: str  # "injury" | "illness"
+    description: str
+    severity: Optional[int] = None
+    start_date: str  # YYYY-MM-DD
+    end_date: Optional[str] = None  # YYYY-MM-DD
+    notes: Optional[str] = None
+
+
 class HistoryResponse(BaseModel):
     days: list[DayHistory]
+    health_events: list[HealthEvent] = []
 
 
 class ProfileSchema(BaseModel):

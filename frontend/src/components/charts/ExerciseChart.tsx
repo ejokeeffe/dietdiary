@@ -1,8 +1,8 @@
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
-  Tooltip, ResponsiveContainer, Legend,
+  Tooltip, ResponsiveContainer, Legend, ReferenceArea,
 } from 'recharts'
-import type { DayHistory } from '../../types'
+import type { DayHistory, HealthEvent } from '../../types'
 
 const COLORS = ['#6c63ff', '#3ecf8e', '#f5a623', '#e05260', '#00bcd4', '#ff7043', '#ab47bc']
 
@@ -11,17 +11,36 @@ function fmtDate(dateStr: string): string {
   return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
 }
 
-interface Props {
-  days: DayHistory[]
+const HEALTH_COLORS: Record<string, string> = {
+  injury: '#f5a623',
+  illness: '#9c6fe4',
 }
 
-export default function ExerciseChart({ days }: Props) {
+interface Props {
+  days: DayHistory[]
+  healthEvents?: HealthEvent[]
+}
+
+export default function ExerciseChart({ days, healthEvents = [] }: Props) {
   // Collect all unique exercise types across the period
   const allTypes = Array.from(
     new Set(days.flatMap(d => d.exercise_sessions.map(s => s.exercise_type)))
   )
 
   const hasData = days.some(d => d.exercise_sessions.length > 0)
+
+  // Map health events to chart x-axis ranges using the formatted date strings
+  const healthAreas = healthEvents.map(event => {
+    const end = event.end_date || event.start_date
+    const daysInSpan = days.filter(d => d.date >= event.start_date && d.date <= end)
+    if (daysInSpan.length === 0) return null
+    return {
+      x1: fmtDate(daysInSpan[0].date),
+      x2: fmtDate(daysInSpan[daysInSpan.length - 1].date),
+      color: HEALTH_COLORS[event.event_type] ?? '#999',
+      label: event.description,
+    }
+  }).filter(Boolean) as { x1: string; x2: string; color: string; label: string }[]
 
   // Pivot: one row per day, one column per exercise type (duration in minutes)
   const chartData = days.map(d => {
@@ -69,6 +88,18 @@ export default function ExerciseChart({ days }: Props) {
             <Legend
               wrapperStyle={{ fontSize: 12, color: 'var(--text-muted)' }}
             />
+            {healthAreas.map((area, i) => (
+              <ReferenceArea
+                key={i}
+                x1={area.x1}
+                x2={area.x2}
+                fill={area.color}
+                fillOpacity={0.12}
+                stroke={area.color}
+                strokeOpacity={0.3}
+                strokeWidth={1}
+              />
+            ))}
             {allTypes.map((type, i) => (
               <Bar
                 key={type}

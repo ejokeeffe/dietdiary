@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 from database import get_db
-from models import DiaryEntry, FoodLog, DrinkLog, ExerciseLog, WeightLog
+from models import DiaryEntry, FoodLog, DrinkLog, ExerciseLog, WeightLog, HealthEventLog
 from schemas import ChatRequest, ChatResponse, DiaryEntrySchema
 from claude_parser import parse_message
 from langchain_agent import query_diary
@@ -16,6 +16,7 @@ FOOD_FIELDS = {"item_name", "quantity", "calories", "protein", "carbs", "fat", "
 DRINK_FIELDS = {"item_name", "quantity_ml", "calories", "is_alcoholic", "alcohol_units", "notes"}
 EXERCISE_FIELDS = {"exercise_type", "duration_minutes", "distance_km", "calories_burned", "notes"}
 WEIGHT_FIELDS = {"weight_kg", "notes"}
+HEALTH_FIELDS = {"event_type", "description", "severity", "notes"}
 
 
 def _time_from_str(t: str) -> time:
@@ -52,10 +53,12 @@ def _apply_edit(parsed: dict, request_date: str, db: Session) -> ChatResponse:
         return ChatResponse(type="error", error=f"No {search_type} entries found for {entry_date}.")
 
     # Filter by item name / exercise type (case-insensitive); weight entries skip name matching
-    if search_item and search_type != "weight":
+    if search_item and search_type not in ("weight",):
         term = search_item.lower()
         if search_type == "exercise":
             entries = [e for e in entries if e.exercise_log and term in e.exercise_log.exercise_type.lower()]
+        elif search_type == "health":
+            entries = [e for e in entries if e.health_log and term in e.health_log.description.lower()]
         else:
             log_attr = "food_log" if search_type == "food" else "drink_log"
             entries = [e for e in entries if getattr(e, log_attr) and term in getattr(e, log_attr).item_name.lower()]
@@ -100,6 +103,12 @@ def _apply_edit(parsed: dict, request_date: str, db: Session) -> ChatResponse:
         for key, val in updates.items():
             if key in WEIGHT_FIELDS:
                 setattr(entry.weight_log, key, val)
+    elif search_type == "health" and entry.health_log:
+        for key, val in updates.items():
+            if key in HEALTH_FIELDS:
+                setattr(entry.health_log, key, val)
+            elif key == "end_date":
+                entry.health_log.end_date = date.fromisoformat(val) if val else None
 
     db.commit()
     db.refresh(entry)
@@ -109,7 +118,8 @@ def _apply_edit(parsed: dict, request_date: str, db: Session) -> ChatResponse:
         entry.food_log.item_name if entry.food_log else
         entry.drink_log.item_name if entry.drink_log else
         entry.exercise_log.exercise_type if entry.exercise_log else
-        "Weight" if entry.weight_log else search_item
+        "Weight" if entry.weight_log else
+        entry.health_log.description if entry.health_log else search_item
     )
     confirmation = f"Updated: {item_label} — {changed}"
 
@@ -143,7 +153,7 @@ def chat(request: ChatRequest, db: Session = Depends(get_db)):
             return ChatResponse(type="error", error=f"Failed to query diary: {str(e)}")
 
     # It's a diary entry — use parsed date if Claude resolved one, else fall back to the viewed date
-    raw_date = parsed.get("entry_date") or date.today().isoformat()
+    raw_date = parsed.get("entry_date") or request.date
     log.debug("date resolution | claude_entry_date=%r | request.date=%s | using=%s",
               parsed.get("entry_date"), request.date, raw_date)
     try:
@@ -229,6 +239,31 @@ def chat(request: ChatRequest, db: Session = Depends(get_db)):
         stones = int(weight_kg / 6.35029)
         lbs = round((weight_kg - stones * 6.35029) / 0.453592)
         confirmation = f"Logged: Weight — {weight_kg:.1f} kg ({stones} st {lbs} lbs) at {parsed.get('entry_time', default_time)}{date_suffix}"
+
+    elif entry_type == "health":
+        description = parsed.get("description")
+        if not description:
+            db.rollback()
+            return ChatResponse(type="error", error="Could not parse health event description.")
+        raw_end_date = parsed.get("end_date")
+        parsed_end_date = None
+        if raw_end_date:
+            try:
+                parsed_end_date = date.fromisoformat(raw_end_date)
+            except (ValueError, TypeError):
+                pass
+        health = HealthEventLog(
+            entry_id=entry.id,
+            event_type=parsed.get("event_type", "illness"),
+            description=description,
+            severity=parsed.get("severity"),
+            end_date=parsed_end_date,
+            notes=parsed.get("notes"),
+        )
+        db.add(health)
+        severity_str = f", severity {parsed['severity']}/5" if parsed.get("severity") else ""
+        end_str = f" (until {parsed_end_date})" if parsed_end_date else ""
+        confirmation = f"Logged: {health.event_type.capitalize()} — {description}{severity_str}{end_str}{date_suffix}"
 
     db.commit()
     db.refresh(entry)

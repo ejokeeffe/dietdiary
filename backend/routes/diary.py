@@ -2,8 +2,8 @@ from datetime import date, datetime, time, timedelta
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from database import get_db
-from models import DiaryEntry, FoodLog, DrinkLog, ExerciseLog, WeightLog
-from schemas import DaySummary, DiaryEntrySchema, EntryUpdate, HistoryResponse, DayHistory, ExerciseSession
+from models import DiaryEntry, FoodLog, DrinkLog, ExerciseLog, WeightLog, HealthEventLog
+from schemas import DaySummary, DiaryEntrySchema, EntryUpdate, HistoryResponse, DayHistory, ExerciseSession, HealthEvent
 
 router = APIRouter(prefix="/api")
 
@@ -108,6 +108,20 @@ def update_entry(entry_id: int, payload: EntryUpdate, db: Session = Depends(get_
         for field, value in payload.weight.model_dump(exclude_unset=True).items():
             setattr(entry.weight_log, field, value)
 
+    if payload.health and entry.health_log:
+        health_data = payload.health.model_dump(exclude_unset=True)
+        for field, value in health_data.items():
+            if field == "end_date":
+                if value:
+                    try:
+                        entry.health_log.end_date = date.fromisoformat(value)
+                    except (ValueError, TypeError):
+                        raise HTTPException(status_code=400, detail="Invalid end_date format. Use YYYY-MM-DD.")
+                else:
+                    entry.health_log.end_date = None
+            else:
+                setattr(entry.health_log, field, value)
+
     db.commit()
     db.refresh(entry)
     return entry
@@ -196,4 +210,35 @@ def get_history(profile_id: int, days: int = 30, db: Session = Depends(get_db)):
             ))
         current += timedelta(days=1)
 
-    return HistoryResponse(days=result)
+    # Collect health events active during the period:
+    # 1. Events that started within the range
+    # 2. Events that started before the range but have end_date >= start (or are ongoing)
+    health_entries_in_range = [e for e in entries if e.entry_type == "health" and e.health_log]
+    health_entries_before = (
+        db.query(DiaryEntry)
+        .filter(
+            DiaryEntry.profile_id == profile_id,
+            DiaryEntry.entry_type == "health",
+            DiaryEntry.entry_date < start,
+        )
+        .all()
+    )
+    ongoing_before = [
+        e for e in health_entries_before
+        if e.health_log and (e.health_log.end_date is None or e.health_log.end_date >= start)
+    ]
+
+    health_events: list[HealthEvent] = []
+    for e in health_entries_in_range + ongoing_before:
+        hl = e.health_log
+        health_events.append(HealthEvent(
+            entry_id=e.id,
+            event_type=hl.event_type,
+            description=hl.description,
+            severity=hl.severity,
+            start_date=e.entry_date.isoformat(),
+            end_date=hl.end_date.isoformat() if hl.end_date else None,
+            notes=hl.notes,
+        ))
+
+    return HistoryResponse(days=result, health_events=health_events)
