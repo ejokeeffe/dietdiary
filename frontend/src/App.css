@@ -436,6 +436,73 @@ body {
 .card-fields input:focus,
 .card-fields select:focus { border-color: var(--accent); }
 
+/* Health event badges */
+.health-badge {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 1px 7px;
+  border-radius: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.health-badge--injury { background: rgba(245, 166, 35, 0.18); color: #f5a623; }
+.health-badge--illness { background: rgba(156, 111, 228, 0.18); color: #9c6fe4; }
+
+/* Health timeline chart */
+.health-timeline { display: flex; flex-direction: column; gap: 10px; }
+
+.health-timeline-axis {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--text-muted);
+  padding: 0 0 4px;
+}
+
+.health-timeline-row { display: flex; flex-direction: column; gap: 4px; }
+
+.health-timeline-track {
+  position: relative;
+  height: 12px;
+  background: var(--bg3);
+  border-radius: 6px;
+  overflow: visible;
+}
+
+.health-timeline-bar {
+  position: absolute;
+  height: 100%;
+  border-radius: 6px;
+  min-width: 6px;
+}
+
+.health-timeline-bar--injury { background: #f5a623; opacity: 0.75; }
+.health-timeline-bar--illness { background: #9c6fe4; opacity: 0.75; }
+
+.health-timeline-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  flex-wrap: wrap;
+}
+
+.health-timeline-desc { color: var(--text); font-weight: 500; }
+.health-timeline-sev { color: var(--text-muted); }
+.health-timeline-dates { color: var(--text-muted); margin-left: auto; font-size: 11px; }
+
+.health-legend-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  vertical-align: middle;
+}
+.health-legend-dot--injury { background: #f5a623; }
+.health-legend-dot--illness { background: #9c6fe4; }
+
 /* Scrollbar */
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }

@@ -150,17 +150,19 @@ def test_parse_message_sends_todays_date_as_current_date_not_viewed_date():
     yesterday = (today - datetime.timedelta(days=1)).isoformat()
 
     fake_response = MagicMock()
-    fake_response.content = [MagicMock(text='{"type":"entry","entry_date":null,"entry_type":"food","entry_time":"09:00","item_name":"Porridge","quantity":null,"calories":350,"protein":10.0,"carbs":60.0,"fat":5.0,"fibre":4.0,"sugar":5.0,"is_alcoholic":false,"alcohol_units":0.0,"exercise_type":null,"duration_minutes":null,"distance_km":null,"calories_burned":null,"notes":null}')]
+    fake_response.content = '{"type":"entry","entry_date":null,"entry_type":"food","entry_time":"09:00","item_name":"Porridge","quantity":null,"calories":350,"protein":10.0,"carbs":60.0,"fat":5.0,"fibre":4.0,"sugar":5.0,"is_alcoholic":false,"alcohol_units":0.0,"exercise_type":null,"duration_minutes":null,"distance_km":null,"calories_burned":null,"notes":null}'
 
     captured = {}
-    def capture_create(**kwargs):
-        captured["messages"] = kwargs.get("messages", [])
+    def capture_invoke(inputs):
+        captured["user_message"] = inputs.get("user_message", "")
         return fake_response
 
-    with patch.object(claude_parser.client.messages, "create", side_effect=capture_create):
+    mock_chain = MagicMock()
+    mock_chain.invoke.side_effect = capture_invoke
+    with patch.object(claude_parser, "chain", mock_chain):
         claude_parser.parse_message("had porridge yesterday", "09:00", default_date=yesterday)
 
-    user_content = captured["messages"][0]["content"]
+    user_content = captured["user_message"]
     assert f"Current date: {today.isoformat()}" in user_content, (
         f"Expected Claude to receive 'Current date: {today.isoformat()}' (today) "
         f"but the prompt contained: {user_content!r}. "

@@ -13,6 +13,13 @@ function fmt(n: number | null | undefined, unit = '') {
   return `${n}${unit}`
 }
 
+function kgToStone(kg: number): string {
+  const totalLbs = kg / 0.453592
+  const stones = Math.floor(totalLbs / 14)
+  const lbs = Math.round(totalLbs % 14)
+  return `${stones} st ${lbs} lbs`
+}
+
 export default function EntryCard({ entry, onUpdated, onDeleted }: Props) {
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -49,6 +56,17 @@ export default function EntryCard({ entry, onUpdated, onDeleted }: Props) {
       f.distance_km = el.distance_km?.toString() ?? ''
       f.calories_burned = el.calories_burned?.toString() ?? ''
       f.notes = el.notes ?? ''
+    } else if (entry.weight_log) {
+      const wl = entry.weight_log
+      f.weight_kg = wl.weight_kg.toString()
+      f.notes = wl.notes ?? ''
+    } else if (entry.health_log) {
+      const hl = entry.health_log
+      f.event_type = hl.event_type
+      f.description = hl.description
+      f.severity = hl.severity?.toString() ?? ''
+      f.end_date = hl.end_date ?? ''
+      f.notes = hl.notes ?? ''
     }
     setFields(f)
     setEditing(true)
@@ -89,6 +107,19 @@ export default function EntryCard({ entry, onUpdated, onDeleted }: Props) {
           duration_minutes: fields.duration_minutes ? parseFloat(fields.duration_minutes) : null,
           distance_km: fields.distance_km ? parseFloat(fields.distance_km) : null,
           calories_burned: fields.calories_burned ? parseFloat(fields.calories_burned) : null,
+          notes: fields.notes || null,
+        }
+      } else if (entry.entry_type === 'weight') {
+        update.weight = {
+          weight_kg: fields.weight_kg ? parseFloat(fields.weight_kg) : undefined,
+          notes: fields.notes || null,
+        }
+      } else if (entry.entry_type === 'health') {
+        update.health = {
+          event_type: fields.event_type as 'injury' | 'illness',
+          description: fields.description,
+          severity: fields.severity ? parseInt(fields.severity) : null,
+          end_date: fields.end_date || null,
           notes: fields.notes || null,
         }
       }
@@ -147,6 +178,25 @@ export default function EntryCard({ entry, onUpdated, onDeleted }: Props) {
             <label>Calories burned <input type="number" value={fields.calories_burned} onChange={e => set('calories_burned', e.target.value)} /></label>
             <label>Notes <input value={fields.notes} onChange={e => set('notes', e.target.value)} /></label>
           </>}
+          {entry.entry_type === 'weight' && <>
+            <label>Weight (kg) <input type="number" step="0.1" value={fields.weight_kg} onChange={e => set('weight_kg', e.target.value)} /></label>
+            {fields.weight_kg && !isNaN(parseFloat(fields.weight_kg)) && (
+              <span className="detail">{kgToStone(parseFloat(fields.weight_kg))}</span>
+            )}
+            <label>Notes <input value={fields.notes} onChange={e => set('notes', e.target.value)} /></label>
+          </>}
+          {entry.entry_type === 'health' && <>
+            <label>Type
+              <select value={fields.event_type} onChange={e => set('event_type', e.target.value)}>
+                <option value="injury">Injury</option>
+                <option value="illness">Illness</option>
+              </select>
+            </label>
+            <label>Description <input value={fields.description} onChange={e => set('description', e.target.value)} /></label>
+            <label>Severity (1–5) <input type="number" min="1" max="5" value={fields.severity} onChange={e => set('severity', e.target.value)} /></label>
+            <label>End date <input type="date" value={fields.end_date} onChange={e => set('end_date', e.target.value)} /></label>
+            <label>Notes <input value={fields.notes} onChange={e => set('notes', e.target.value)} /></label>
+          </>}
         </div>
         <div className="card-actions">
           <button onClick={save} disabled={saving} className="btn-save">{saving ? 'Saving…' : 'Save'}</button>
@@ -199,6 +249,29 @@ export default function EntryCard({ entry, onUpdated, onDeleted }: Props) {
               {fmt(entry.exercise_log.calories_burned, ' kcal burned') && <span>{fmt(entry.exercise_log.calories_burned, ' kcal burned')}</span>}
             </div>
             {entry.exercise_log.notes && <div className="notes">{entry.exercise_log.notes}</div>}
+          </>
+        )}
+        {entry.entry_type === 'weight' && entry.weight_log && (
+          <>
+            <strong>Weight</strong>
+            <div className="macros">
+              <span>{entry.weight_log.weight_kg.toFixed(1)} kg</span>
+              <span>{kgToStone(entry.weight_log.weight_kg)}</span>
+            </div>
+            {entry.weight_log.notes && <div className="notes">{entry.weight_log.notes}</div>}
+          </>
+        )}
+        {entry.entry_type === 'health' && entry.health_log && (
+          <>
+            <span className={`health-badge health-badge--${entry.health_log.event_type}`}>
+              {entry.health_log.event_type === 'injury' ? 'Injury' : 'Illness'}
+            </span>
+            <strong style={{ marginLeft: 6 }}>{entry.health_log.description}</strong>
+            <div className="macros">
+              {entry.health_log.severity && <span>Severity: {entry.health_log.severity}/5</span>}
+              {entry.health_log.end_date && <span>Until: {entry.health_log.end_date}</span>}
+            </div>
+            {entry.health_log.notes && <div className="notes">{entry.health_log.notes}</div>}
           </>
         )}
       </div>

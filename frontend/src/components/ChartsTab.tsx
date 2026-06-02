@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api/client'
-import type { DayHistory } from '../types'
+import type { DayHistory, HealthEvent } from '../types'
 import NutritionChart from './charts/NutritionChart'
 import ExerciseChart from './charts/ExerciseChart'
 import AlcoholChart from './charts/AlcoholChart'
+import WeightChart from './charts/WeightChart'
+import HealthTimeline from './charts/HealthTimeline'
 
 const RANGE_OPTIONS = [
   { label: '7 days', value: 7 },
@@ -18,14 +20,15 @@ interface Props {
 
 export default function ChartsTab({ profileId, sex }: Props) {
   const [days, setDays] = useState<DayHistory[]>([])
+  const [healthEvents, setHealthEvents] = useState<HealthEvent[]>([])
   const [range, setRange] = useState(30)
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
     setLoading(true)
     api.getHistory(profileId, range)
-      .then(r => setDays(r.days))
-      .catch(() => setDays([]))
+      .then(r => { setDays(r.days); setHealthEvents(r.health_events) })
+      .catch(() => { setDays([]); setHealthEvents([]) })
       .finally(() => setLoading(false))
   }, [profileId, range])
 
@@ -47,8 +50,10 @@ export default function ChartsTab({ profileId, sex }: Props) {
         <div className="loading-msg">Loading…</div>
       ) : (
         <>
+          <HealthTimeline healthEvents={healthEvents} rangeStart={days[0]?.date} rangeEnd={days[days.length - 1]?.date} />
+          <WeightChart days={days} />
           <NutritionChart days={days} sex={sex} />
-          <ExerciseChart days={days} />
+          <ExerciseChart days={days} healthEvents={healthEvents} />
           <AlcoholChart days={days} sex={sex} />
         </>
       )}
